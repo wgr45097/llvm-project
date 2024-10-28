@@ -273,29 +273,33 @@ static void wrapExternalFunction(OpBuilder &builder, Location loc,
 static void restoreByValRefArgumentType(
     ConversionPatternRewriter &rewriter, const LLVMTypeConverter &typeConverter,
     ArrayRef<std::optional<NamedAttribute>> byValRefNonPtrAttrs,
-    LLVM::LLVMFuncOp funcOp) {
+    ArrayRef<BlockArgument> oldBlockArgs, LLVM::LLVMFuncOp newFuncOp) {
   // Nothing to do for function declarations.
-  if (funcOp.isExternal())
+  if (newFuncOp.isExternal())
     return;
 
   ConversionPatternRewriter::InsertionGuard guard(rewriter);
-  rewriter.setInsertionPointToStart(&funcOp.getFunctionBody().front());
+  rewriter.setInsertionPointToStart(&newFuncOp.getFunctionBody().front());
 
-  for (const auto &[arg, byValRefAttr] :
-       llvm::zip(funcOp.getArguments(), byValRefNonPtrAttrs)) {
+  for (const auto &[newArg, oldArg, byValRefAttr] :
+       llvm::zip(newFuncOp.getArguments(), oldBlockArgs, byValRefNonPtrAttrs)) {
     // Skip argument if no `llvm.byval` or `llvm.byref` attribute.
-    if (!byValRefAttr)
+    if (!byValRefAttr) {
+      llvm::errs() << "NO ATTR!\n";
       continue;
+    }
 
     // Insert load to retrieve the actual argument passed by value/reference.
-    assert(isa<LLVM::LLVMPointerType>(arg.getType()) &&
+    assert(isa<LLVM::LLVMPointerType>(newArg.getType()) &&
            "Expected LLVM pointer type for argument with "
            "`llvm.byval`/`llvm.byref` attribute");
     Type resTy = typeConverter.convertType(
         cast<TypeAttr>(byValRefAttr->getValue()).getValue());
 
-    auto valueArg = rewriter.create<LLVM::LoadOp>(arg.getLoc(), resTy, arg);
-    rewriter.replaceAllUsesExcept(arg, valueArg, valueArg);
+    llvm::errs() << "CREATE!\n";
+    auto valueArg = rewriter.create<LLVM::LoadOp>(newArg.getLoc(), resTy, newArg);
+    //rewriter.replaceAllUsesExcept(newArg, valueArg, valueArg);
+    rewriter.replaceUsesOfBlockArgument(oldArg, valueArg);
   }
 }
 
@@ -308,6 +312,7 @@ mlir::convertFuncOpToLLVMFuncOp(FunctionOpInterface funcOp,
   if (!funcTy)
     return rewriter.notifyMatchFailure(
         funcOp, "Only support FunctionOpInterface with FunctionType");
+  SmallVector<BlockArgument> oldBlockArgs = llvm::to_vector(funcOp.getArguments());
 
   // Convert the original function arguments. They are converted using the
   // LLVMTypeConverter provided to this legalization pattern.
@@ -438,7 +443,7 @@ mlir::convertFuncOpToLLVMFuncOp(FunctionOpInterface funcOp,
   // pointee type in the function body when converting `llvm.byval`/`llvm.byref`
   // function arguments.
   restoreByValRefArgumentType(rewriter, converter, byValRefNonPtrAttrs,
-                              newFuncOp);
+                              oldBlockArgs, newFuncOp);
 
   if (!shouldUseBarePtrCallConv(funcOp, &converter)) {
     if (funcOp->getAttrOfType<UnitAttr>(
