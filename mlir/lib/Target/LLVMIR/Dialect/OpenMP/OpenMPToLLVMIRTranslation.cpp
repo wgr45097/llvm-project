@@ -126,6 +126,286 @@ char PreviouslyReportedError::ID = 0;
 
 } // namespace
 
+/// Check whether translation to LLVM IR for the given operation is currently
+/// supported. If not, descriptive diagnostics will be emitted to let users know
+/// this is a not-yet-implemented feature.
+///
+/// The default implementation always succeeds. This template must be overriden
+/// for operations which are still work in progress.
+///
+/// \returns success if no unimplemented features are needed to translate the
+///          given operation.
+template <typename OpTy>
+static LogicalResult checkImplementationStatus(OpTy) {
+  return success();
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::OrderedRegionOp op) {
+  if (op.getParLevelSimd())
+    return op.emitError("parallelization-level clause set not yet supported");
+
+  return success();
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::SectionsOp op) {
+  LogicalResult result = success();
+
+  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
+    result = op.emitError("allocate clause not yet supported");
+
+  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
+    result = op.emitError("privatization clauses not yet supported");
+
+  return result;
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::SingleOp op) {
+  LogicalResult result = success();
+
+  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
+    result = op.emitError("allocate clause not yet supported");
+
+  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
+    result = op.emitError("privatization clauses not yet supported");
+
+  return result;
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::TeamsOp op) {
+  LogicalResult result = success();
+
+  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
+    result = op.emitError("allocate clause not yet supported");
+
+  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
+    result = op.emitError("privatization clauses not yet supported");
+
+  if (!op.getReductionVars().empty() || op.getReductionByref() ||
+      op.getReductionSyms())
+    result = op.emitError("reduction clause not yet supported");
+
+  return result;
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::TaskOp op) {
+  LogicalResult result = success();
+
+  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
+    result = op->emitError("allocate clause not yet supported");
+
+  if (!op.getInReductionVars().empty() || op.getInReductionByref() ||
+      op.getInReductionSyms())
+    result = op.emitError("in_reduction clause not yet supported");
+
+  if (op.getMergeable())
+    result = op.emitError("mergeable clause not yet supported");
+
+  if (op.getPriority())
+    result = op.emitError("priority clause not yet supported");
+
+  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
+    result = op.emitError("privatization clauses not yet supported");
+
+  if (op.getUntied())
+    result = op.emitError("untied clause not yet supported");
+
+  return result;
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::TaskgroupOp op) {
+  LogicalResult result = success();
+
+  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
+    result = op->emitError("allocate clause not yet supported");
+
+  if (!op.getTaskReductionVars().empty() || op.getTaskReductionByref() ||
+      op.getTaskReductionSyms())
+    result = op.emitError("task_reduction clause not yet supported");
+
+  return result;
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::TaskwaitOp op) {
+  LogicalResult result = success();
+
+  if (!op.getDependVars().empty() || op.getDependKinds())
+    result = op.emitError("depend clause not yet supported");
+
+  if (op.getNowait())
+    result = op.emitError("nowait clause not yet supported");
+
+  return result;
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::WsloopOp op) {
+  LogicalResult result = success();
+
+  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
+    result = op.emitError("allocate clause not yet supported");
+
+  if (!op.getLinearVars().empty() || !op.getLinearStepVars().empty())
+    result = op.emitError("linear clause not yet supported");
+
+  if (op.getOrder() || op.getOrderMod())
+    result = op.emitError("order clause not yet supported");
+
+  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
+    result = op.emitError("privatization clauses not yet supported");
+
+  return result;
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::ParallelOp op) {
+  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
+    return op.emitError("allocate clause not yet supported");
+
+  return success();
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::SimdOp op) {
+  LogicalResult result = success();
+
+  if (!op.getAlignedVars().empty() || op.getAlignments())
+    result = op->emitError("aligned clause not yet supported");
+
+  if (!op.getLinearVars().empty() || !op.getLinearStepVars().empty())
+    result = op.emitError("linear clause not yet supported");
+
+  if (!op.getNontemporalVars().empty())
+    result = op.emitError("nontemporal clause not yet supported");
+
+  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
+    result = op.emitError("privatization clauses not yet supported");
+
+  if (!op.getReductionVars().empty() || op.getReductionByref() ||
+      op.getReductionSyms())
+    result = op.emitError("reduction clause not yet supported");
+
+  return result;
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::AtomicReadOp op) {
+  if (op.getHint())
+    op.emitWarning("hint clause discarded");
+
+  return success();
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::AtomicWriteOp op) {
+  if (op.getHint())
+    op.emitWarning("hint clause discarded");
+
+  return success();
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::AtomicUpdateOp op) {
+  if (op.getHint())
+    op.emitWarning("hint clause discarded");
+
+  return success();
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::AtomicCaptureOp op) {
+  if (op.getHint())
+    op.emitWarning("hint clause discarded");
+
+  return success();
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::TargetEnterDataOp op) {
+  if (!op.getDependVars().empty() || op.getDependKinds())
+    return op.emitError("depend clause not yet supported");
+
+  return success();
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::TargetExitDataOp op) {
+  if (!op.getDependVars().empty() || op.getDependKinds())
+    return op.emitError("depend clause not yet supported");
+
+  return success();
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::TargetUpdateOp op) {
+  if (!op.getDependVars().empty() || op.getDependKinds())
+    return op.emitError("depend clause not yet supported");
+
+  return success();
+}
+
+/// Looks up from the operation from and returns the PrivateClauseOp with
+/// name symbolName
+static omp::PrivateClauseOp findPrivatizer(Operation *from,
+                                           SymbolRefAttr symbolName) {
+  omp::PrivateClauseOp privatizer =
+      SymbolTable::lookupNearestSymbolFrom<omp::PrivateClauseOp>(from,
+                                                                 symbolName);
+  assert(privatizer && "privatizer not found in the symbol table");
+  return privatizer;
+}
+
+template <>
+LogicalResult checkImplementationStatus(omp::TargetOp op) {
+  LogicalResult result = success();
+
+  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
+    result = op.emitError("allocate clause not yet supported");
+
+  if (op.getDevice())
+    result = op.emitError("device clause not yet supported");
+
+  if (!op.getHasDeviceAddrVars().empty())
+    result = op->emitError("has_device_addr clause not yet supported");
+
+  if (op.getIfExpr())
+    result = op.emitError("if clause not yet supported");
+
+  if (!op.getInReductionVars().empty() || op.getInReductionByref() ||
+      op.getInReductionSyms())
+    result = op.emitError("in_reduction clause not yet supported");
+
+  if (!op.getIsDevicePtrVars().empty())
+    result = op->emitError("is_device_ptr clause not yet supported");
+
+  // Privatization clauses are supported, except on some situations, so we need
+  // to check here whether any of these unsupported cases are being translated.
+  if (std::optional<ArrayAttr> privateSyms = op.getPrivateSyms()) {
+    for (Attribute privatizerNameAttr : *privateSyms) {
+      omp::PrivateClauseOp privatizer = findPrivatizer(
+          op.getOperation(), cast<SymbolRefAttr>(privatizerNameAttr));
+
+      if (privatizer.getDataSharingType() ==
+          omp::DataSharingClauseType::FirstPrivate)
+        result = op.emitError("firstprivate clause not yet supported");
+
+      if (!privatizer.getDeallocRegion().empty())
+        result = op.emitError("privatization of structures not yet supported");
+    }
+  }
+
+  if (op.getThreadLimit())
+    result = op.emitError("thread_limit clause not yet supported");
+
+  return result;
+}
+
 static LogicalResult handleError(llvm::Error error, Operation &op) {
   LogicalResult result = success();
   if (error) {
@@ -325,6 +605,9 @@ convertOmpMasked(Operation &opInst, llvm::IRBuilderBase &builder,
   auto maskedOp = cast<omp::MaskedOp>(opInst);
   using InsertPointTy = llvm::OpenMPIRBuilder::InsertPointTy;
 
+  if (failed(checkImplementationStatus(maskedOp)))
+    return failure();
+
   auto bodyGenCB = [&](InsertPointTy allocaIP, InsertPointTy codeGenIP) {
     // MaskedOp has only one region associated with it.
     auto &region = maskedOp.getRegion();
@@ -364,9 +647,14 @@ static LogicalResult
 convertOmpMaster(Operation &opInst, llvm::IRBuilderBase &builder,
                  LLVM::ModuleTranslation &moduleTranslation) {
   using InsertPointTy = llvm::OpenMPIRBuilder::InsertPointTy;
+  auto masterOp = cast<omp::MasterOp>(opInst);
+
+  if (failed(checkImplementationStatus(masterOp)))
+    return failure();
+
   auto bodyGenCB = [&](InsertPointTy allocaIP, InsertPointTy codeGenIP) {
     // MasterOp has only one region associated with it.
-    auto &region = cast<omp::MasterOp>(opInst).getRegion();
+    auto &region = masterOp.getRegion();
     builder.restoreIP(codeGenIP);
     return convertOmpOpRegions(region, "omp.master.region", builder,
                                moduleTranslation)
@@ -395,6 +683,9 @@ convertOmpCritical(Operation &opInst, llvm::IRBuilderBase &builder,
                    LLVM::ModuleTranslation &moduleTranslation) {
   using InsertPointTy = llvm::OpenMPIRBuilder::InsertPointTy;
   auto criticalOp = cast<omp::CriticalOp>(opInst);
+
+  if (failed(checkImplementationStatus(criticalOp)))
+    return failure();
 
   auto bodyGenCB = [&](InsertPointTy allocaIP, InsertPointTy codeGenIP) {
     // CriticalOp has only one region associated with it.
@@ -434,17 +725,6 @@ convertOmpCritical(Operation &opInst, llvm::IRBuilderBase &builder,
 
   builder.restoreIP(*afterIP);
   return success();
-}
-
-/// Looks up from the operation from and returns the PrivateClauseOp with
-/// name symbolName
-static omp::PrivateClauseOp findPrivatizer(Operation *from,
-                                           SymbolRefAttr symbolName) {
-  omp::PrivateClauseOp privatizer =
-      SymbolTable::lookupNearestSymbolFrom<omp::PrivateClauseOp>(from,
-                                                                 symbolName);
-  assert(privatizer && "privatizer not found in the symbol table");
-  return privatizer;
 }
 
 /// Populates `privatizations` with privatization declarations used for the
@@ -629,6 +909,9 @@ convertOmpOrdered(Operation &opInst, llvm::IRBuilderBase &builder,
                   LLVM::ModuleTranslation &moduleTranslation) {
   auto orderedOp = cast<omp::OrderedOp>(opInst);
 
+  if (failed(checkImplementationStatus(orderedOp)))
+    return failure();
+
   omp::ClauseDepend dependType = *orderedOp.getDoacrossDependType();
   bool isDependSource = dependType == omp::ClauseDepend::dependsource;
   unsigned numLoops = *orderedOp.getDoacrossNumLoops();
@@ -652,13 +935,6 @@ convertOmpOrdered(Operation &opInst, llvm::IRBuilderBase &builder,
   return success();
 }
 
-static LogicalResult orderedRegionSupported(omp::OrderedRegionOp op) {
-  if (op.getParLevelSimd())
-    return op.emitError("parallelization-level clause set not yet supported");
-
-  return success();
-}
-
 /// Converts an OpenMP 'ordered_region' operation into LLVM IR using
 /// OpenMPIRBuilder.
 static LogicalResult
@@ -667,7 +943,7 @@ convertOmpOrderedRegion(Operation &opInst, llvm::IRBuilderBase &builder,
   using InsertPointTy = llvm::OpenMPIRBuilder::InsertPointTy;
   auto orderedRegionOp = cast<omp::OrderedRegionOp>(opInst);
 
-  if (failed(orderedRegionSupported(orderedRegionOp)))
+  if (failed(checkImplementationStatus(orderedRegionOp)))
     return failure();
 
   auto bodyGenCB = [&](InsertPointTy allocaIP, InsertPointTy codeGenIP) {
@@ -1004,16 +1280,6 @@ static LogicalResult allocAndInitializeReductionVars(
   return success();
 }
 
-static LogicalResult sectionsOpSupported(omp::SectionsOp op) {
-  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
-    return op.emitError("allocate clause not yet supported");
-
-  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
-    return op.emitError("privatization clauses not yet supported");
-
-  return success();
-}
-
 static LogicalResult
 convertOmpSections(Operation &opInst, llvm::IRBuilderBase &builder,
                    LLVM::ModuleTranslation &moduleTranslation) {
@@ -1023,7 +1289,7 @@ convertOmpSections(Operation &opInst, llvm::IRBuilderBase &builder,
 
   auto sectionsOp = cast<omp::SectionsOp>(opInst);
 
-  if (failed(sectionsOpSupported(sectionsOp)))
+  if (failed(checkImplementationStatus(sectionsOp)))
     return failure();
 
   llvm::ArrayRef<bool> isByRef = getIsByRef(sectionsOp.getReductionByref());
@@ -1125,16 +1391,6 @@ convertOmpSections(Operation &opInst, llvm::IRBuilderBase &builder,
                                     privateReductionVariables, isByRef);
 }
 
-static LogicalResult singleOpSupported(omp::SingleOp op) {
-  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
-    return op.emitError("allocate clause not yet supported");
-
-  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
-    return op.emitError("privatization clauses not yet supported");
-
-  return success();
-}
-
 /// Converts an OpenMP single construct into LLVM IR using OpenMPIRBuilder.
 static LogicalResult
 convertOmpSingle(omp::SingleOp &singleOp, llvm::IRBuilderBase &builder,
@@ -1142,7 +1398,7 @@ convertOmpSingle(omp::SingleOp &singleOp, llvm::IRBuilderBase &builder,
   using InsertPointTy = llvm::OpenMPIRBuilder::InsertPointTy;
   llvm::OpenMPIRBuilder::LocationDescription ompLoc(builder);
 
-  if (failed(singleOpSupported(singleOp)))
+  if (failed(checkImplementationStatus(singleOp)))
     return failure();
 
   auto bodyCB = [&](InsertPointTy allocaIP, InsertPointTy codegenIP) {
@@ -1178,26 +1434,12 @@ convertOmpSingle(omp::SingleOp &singleOp, llvm::IRBuilderBase &builder,
   return success();
 }
 
-static LogicalResult teamsOpSupported(omp::TeamsOp op) {
-  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
-    return op.emitError("allocate clause not yet supported");
-
-  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
-    return op.emitError("privatization clauses not yet supported");
-
-  if (!op.getReductionVars().empty() || op.getReductionByref() ||
-      op.getReductionSyms())
-    return op.emitError("reduction clause not yet supported");
-
-  return success();
-}
-
 // Convert an OpenMP Teams construct to LLVM IR using OpenMPIRBuilder
 static LogicalResult
 convertOmpTeams(omp::TeamsOp op, llvm::IRBuilderBase &builder,
                 LLVM::ModuleTranslation &moduleTranslation) {
   using InsertPointTy = llvm::OpenMPIRBuilder::InsertPointTy;
-  if (failed(teamsOpSupported(op)))
+  if (failed(checkImplementationStatus(op)))
     return failure();
 
   auto bodyCB = [&](InsertPointTy allocaIP, InsertPointTy codegenIP) {
@@ -1264,35 +1506,12 @@ buildDependData(std::optional<ArrayAttr> dependKinds, OperandRange dependVars,
   }
 }
 
-static LogicalResult taskOpSupported(omp::TaskOp op) {
-  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
-    return op->emitError("allocate clause not yet supported");
-
-  if (!op.getInReductionVars().empty() || op.getInReductionByref() ||
-      op.getInReductionSyms())
-    return op.emitError("in_reduction clause not yet supported");
-
-  if (op.getMergeable())
-    return op.emitError("mergeable clause not yet supported");
-
-  if (op.getPriority())
-    return op.emitError("priority clause not yet supported");
-
-  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
-    return op.emitError("privatization clauses not yet supported");
-
-  if (op.getUntied())
-    return op.emitError("untied clause not yet supported");
-
-  return success();
-}
-
 /// Converts an OpenMP task construct into LLVM IR using OpenMPIRBuilder.
 static LogicalResult
 convertOmpTaskOp(omp::TaskOp taskOp, llvm::IRBuilderBase &builder,
                  LLVM::ModuleTranslation &moduleTranslation) {
   using InsertPointTy = llvm::OpenMPIRBuilder::InsertPointTy;
-  if (failed(taskOpSupported(taskOp)))
+  if (failed(checkImplementationStatus(taskOp)))
     return failure();
 
   auto bodyCB = [&](InsertPointTy allocaIP, InsertPointTy codegenIP) {
@@ -1327,23 +1546,12 @@ convertOmpTaskOp(omp::TaskOp taskOp, llvm::IRBuilderBase &builder,
   return success();
 }
 
-static LogicalResult taskgroupOpSupported(omp::TaskgroupOp op) {
-  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
-    return op->emitError("allocate clause not yet supported");
-
-  if (!op.getTaskReductionVars().empty() || op.getTaskReductionByref() ||
-      op.getTaskReductionSyms())
-    return op.emitError("task_reduction clause not yet supported");
-
-  return success();
-}
-
 /// Converts an OpenMP taskgroup construct into LLVM IR using OpenMPIRBuilder.
 static LogicalResult
 convertOmpTaskgroupOp(omp::TaskgroupOp tgOp, llvm::IRBuilderBase &builder,
                       LLVM::ModuleTranslation &moduleTranslation) {
   using InsertPointTy = llvm::OpenMPIRBuilder::InsertPointTy;
-  if (failed(taskgroupOpSupported(tgOp)))
+  if (failed(checkImplementationStatus(tgOp)))
     return failure();
 
   auto bodyCB = [&](InsertPointTy allocaIP, InsertPointTy codegenIP) {
@@ -1366,39 +1574,13 @@ convertOmpTaskgroupOp(omp::TaskgroupOp tgOp, llvm::IRBuilderBase &builder,
   return success();
 }
 
-static LogicalResult taskwaitOpSupported(omp::TaskwaitOp op) {
-  if (!op.getDependVars().empty() || op.getDependKinds())
-    return op.emitError("depend clause not yet supported");
-
-  if (op.getNowait())
-    return op.emitError("nowait clause not yet supported");
-
-  return success();
-}
-
 static LogicalResult
 convertOmpTaskwaitOp(omp::TaskwaitOp twOp, llvm::IRBuilderBase &builder,
                      LLVM::ModuleTranslation &moduleTranslation) {
-  if (failed(taskwaitOpSupported(twOp)))
+  if (failed(checkImplementationStatus(twOp)))
     return failure();
 
   moduleTranslation.getOpenMPBuilder()->createTaskwait(builder.saveIP());
-  return success();
-}
-
-static LogicalResult wsloopOpSupported(omp::WsloopOp op) {
-  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
-    return op.emitError("allocate clause not yet supported");
-
-  if (!op.getLinearVars().empty() || !op.getLinearStepVars().empty())
-    return op.emitError("linear clause not yet supported");
-
-  if (op.getOrder() || op.getOrderMod())
-    return op.emitError("order clause not yet supported");
-
-  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
-    return op.emitError("privatization clauses not yet supported");
-
   return success();
 }
 
@@ -1407,7 +1589,7 @@ static LogicalResult
 convertOmpWsloop(Operation &opInst, llvm::IRBuilderBase &builder,
                  LLVM::ModuleTranslation &moduleTranslation) {
   auto wsloopOp = cast<omp::WsloopOp>(opInst);
-  if (failed(wsloopOpSupported(wsloopOp)))
+  if (failed(checkImplementationStatus(wsloopOp)))
     return failure();
 
   // FIXME: Here any other nested wrappers (e.g. omp.simd) are skipped, so
@@ -1552,13 +1734,6 @@ convertOmpWsloop(Operation &opInst, llvm::IRBuilderBase &builder,
                                     privateReductionVariables, isByRef);
 }
 
-static LogicalResult parallelOpSupported(omp::ParallelOp op) {
-  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
-    return op.emitError("allocate clause not yet supported");
-
-  return success();
-}
-
 /// Converts the OpenMP parallel operation to LLVM IR.
 static LogicalResult
 convertOmpParallel(omp::ParallelOp opInst, llvm::IRBuilderBase &builder,
@@ -1568,7 +1743,7 @@ convertOmpParallel(omp::ParallelOp opInst, llvm::IRBuilderBase &builder,
   assert(isByRef.size() == opInst.getNumReductionVars());
   llvm::OpenMPIRBuilder *ompBuilder = moduleTranslation.getOpenMPBuilder();
 
-  if (failed(parallelOpSupported(opInst)))
+  if (failed(checkImplementationStatus(opInst)))
     return failure();
 
   // Collect delayed privatization declarations
@@ -1917,26 +2092,6 @@ convertOrderKind(std::optional<omp::ClauseOrderKind> o) {
   llvm_unreachable("Unknown ClauseOrderKind kind");
 }
 
-static LogicalResult simdOpSupported(omp::SimdOp op) {
-  if (!op.getAlignedVars().empty() || op.getAlignments())
-    return op->emitError("aligned clause not yet supported");
-
-  if (!op.getLinearVars().empty() || !op.getLinearStepVars().empty())
-    return op.emitError("linear clause not yet supported");
-
-  if (!op.getNontemporalVars().empty())
-    return op.emitError("nontemporal clause not yet supported");
-
-  if (!op.getPrivateVars().empty() || op.getPrivateSyms())
-    return op.emitError("privatization clauses not yet supported");
-
-  if (!op.getReductionVars().empty() || op.getReductionByref() ||
-      op.getReductionSyms())
-    return op.emitError("reduction clause not yet supported");
-
-  return success();
-}
-
 /// Converts an OpenMP simd loop into LLVM IR using OpenMPIRBuilder.
 static LogicalResult
 convertOmpSimd(Operation &opInst, llvm::IRBuilderBase &builder,
@@ -1944,7 +2099,7 @@ convertOmpSimd(Operation &opInst, llvm::IRBuilderBase &builder,
   auto simdOp = cast<omp::SimdOp>(opInst);
   auto loopOp = cast<omp::LoopNestOp>(simdOp.getWrappedLoop());
 
-  if (failed(simdOpSupported(simdOp)))
+  if (failed(checkImplementationStatus(simdOp)))
     return failure();
 
   llvm::OpenMPIRBuilder::LocationDescription ompLoc(builder);
@@ -2054,20 +2209,12 @@ convertAtomicOrdering(std::optional<omp::ClauseMemoryOrderKind> ao) {
   llvm_unreachable("Unknown ClauseMemoryOrderKind kind");
 }
 
-template <typename OpTy>
-static LogicalResult atomicOpSupported(OpTy op) {
-  if (op.getHint())
-    op.emitWarning("hint clause discarded");
-
-  return success();
-}
-
 /// Convert omp.atomic.read operation to LLVM IR.
 static LogicalResult
 convertOmpAtomicRead(Operation &opInst, llvm::IRBuilderBase &builder,
                      LLVM::ModuleTranslation &moduleTranslation) {
   auto readOp = cast<omp::AtomicReadOp>(opInst);
-  if (failed(atomicOpSupported(readOp)))
+  if (failed(checkImplementationStatus(readOp)))
     return failure();
 
   llvm::OpenMPIRBuilder *ompBuilder = moduleTranslation.getOpenMPBuilder();
@@ -2092,7 +2239,7 @@ static LogicalResult
 convertOmpAtomicWrite(Operation &opInst, llvm::IRBuilderBase &builder,
                       LLVM::ModuleTranslation &moduleTranslation) {
   auto writeOp = cast<omp::AtomicWriteOp>(opInst);
-  if (failed(atomicOpSupported(writeOp)))
+  if (failed(checkImplementationStatus(writeOp)))
     return failure();
 
   llvm::OpenMPIRBuilder *ompBuilder = moduleTranslation.getOpenMPBuilder();
@@ -2130,7 +2277,7 @@ convertOmpAtomicUpdate(omp::AtomicUpdateOp &opInst,
                        llvm::IRBuilderBase &builder,
                        LLVM::ModuleTranslation &moduleTranslation) {
   llvm::OpenMPIRBuilder *ompBuilder = moduleTranslation.getOpenMPBuilder();
-  if (failed(atomicOpSupported(opInst)))
+  if (failed(checkImplementationStatus(opInst)))
     return failure();
 
   // Convert values and types.
@@ -2208,7 +2355,7 @@ convertOmpAtomicCapture(omp::AtomicCaptureOp atomicCaptureOp,
                         llvm::IRBuilderBase &builder,
                         LLVM::ModuleTranslation &moduleTranslation) {
   llvm::OpenMPIRBuilder *ompBuilder = moduleTranslation.getOpenMPBuilder();
-  if (failed(atomicOpSupported(atomicCaptureOp)))
+  if (failed(checkImplementationStatus(atomicCaptureOp)))
     return failure();
 
   mlir::Value mlirExpr;
@@ -2305,6 +2452,9 @@ convertOmpThreadprivate(Operation &opInst, llvm::IRBuilderBase &builder,
                         LLVM::ModuleTranslation &moduleTranslation) {
   llvm::OpenMPIRBuilder::LocationDescription ompLoc(builder);
   auto threadprivateOp = cast<omp::ThreadprivateOp>(opInst);
+
+  if (failed(checkImplementationStatus(threadprivateOp)))
+    return failure();
 
   Value symAddr = threadprivateOp.getSymAddr();
   auto *symOp = symAddr.getDefiningOp();
@@ -3135,14 +3285,6 @@ static void genMapInfos(llvm::IRBuilderBase &builder,
   }
 }
 
-template <typename OpTy>
-static LogicalResult targetDataOpSupported(OpTy op) {
-  if (!op.getDependVars().empty() || op.getDependKinds())
-    return op.emitError("depend clause not yet supported");
-
-  return success();
-}
-
 static LogicalResult
 convertOmpTargetData(Operation *op, llvm::IRBuilderBase &builder,
                      LLVM::ModuleTranslation &moduleTranslation) {
@@ -3161,6 +3303,9 @@ convertOmpTargetData(Operation *op, llvm::IRBuilderBase &builder,
   LogicalResult result =
       llvm::TypeSwitch<Operation *, LogicalResult>(op)
           .Case([&](omp::TargetDataOp dataOp) {
+            if (failed(checkImplementationStatus(dataOp)))
+              return failure();
+
             if (auto ifVar = dataOp.getIfExpr())
               ifCond = moduleTranslation.lookupValue(ifVar);
 
@@ -3176,7 +3321,7 @@ convertOmpTargetData(Operation *op, llvm::IRBuilderBase &builder,
             return success();
           })
           .Case([&](omp::TargetEnterDataOp enterDataOp) -> LogicalResult {
-            if (failed(targetDataOpSupported(enterDataOp)))
+            if (failed(checkImplementationStatus(enterDataOp)))
               return failure();
 
             if (auto ifVar = enterDataOp.getIfExpr())
@@ -3196,7 +3341,7 @@ convertOmpTargetData(Operation *op, llvm::IRBuilderBase &builder,
             return success();
           })
           .Case([&](omp::TargetExitDataOp exitDataOp) -> LogicalResult {
-            if (failed(targetDataOpSupported(exitDataOp)))
+            if (failed(checkImplementationStatus(exitDataOp)))
               return failure();
 
             if (auto ifVar = exitDataOp.getIfExpr())
@@ -3216,7 +3361,7 @@ convertOmpTargetData(Operation *op, llvm::IRBuilderBase &builder,
             return success();
           })
           .Case([&](omp::TargetUpdateOp updateDataOp) -> LogicalResult {
-            if (failed(targetDataOpSupported(updateDataOp)))
+            if (failed(checkImplementationStatus(updateDataOp)))
               return failure();
 
             if (auto ifVar = updateDataOp.getIfExpr())
@@ -3569,53 +3714,11 @@ createDeviceArgumentAccessor(MapInfoData &mapData, llvm::Argument &arg,
   return builder.saveIP();
 }
 
-static LogicalResult targetOpSupported(omp::TargetOp op) {
-  if (!op.getAllocateVars().empty() || !op.getAllocatorVars().empty())
-    return op.emitError("allocate clause not yet supported");
-
-  if (op.getDevice())
-    return op.emitError("device clause not yet supported");
-
-  if (!op.getHasDeviceAddrVars().empty())
-    return op->emitError("has_device_addr clause not yet supported");
-
-  if (op.getIfExpr())
-    return op.emitError("if clause not yet supported");
-
-  if (!op.getInReductionVars().empty() || op.getInReductionByref() ||
-      op.getInReductionSyms())
-    return op.emitError("in_reduction clause not yet supported");
-
-  if (!op.getIsDevicePtrVars().empty())
-    return op->emitError("is_device_ptr clause not yet supported");
-
-  // Privatization clauses are supported, except on some situations, so we need
-  // to check here whether any of these unsupported cases are being translated.
-  if (std::optional<ArrayAttr> privateSyms = op.getPrivateSyms()) {
-    for (Attribute privatizerNameAttr : *privateSyms) {
-      omp::PrivateClauseOp privatizer = findPrivatizer(
-          op.getOperation(), cast<SymbolRefAttr>(privatizerNameAttr));
-
-      if (privatizer.getDataSharingType() ==
-          omp::DataSharingClauseType::FirstPrivate)
-        return op.emitError("firstprivate clause not yet supported");
-
-      if (!privatizer.getDeallocRegion().empty())
-        return op.emitError("privatization of structures not yet supported");
-    }
-  }
-
-  if (op.getThreadLimit())
-    return op.emitError("thread_limit clause not yet supported");
-
-  return success();
-}
-
 static LogicalResult
 convertOmpTarget(Operation &opInst, llvm::IRBuilderBase &builder,
                  LLVM::ModuleTranslation &moduleTranslation) {
   auto targetOp = cast<omp::TargetOp>(opInst);
-  if (failed(targetOpSupported(targetOp)))
+  if (failed(checkImplementationStatus(targetOp)))
     return failure();
 
   llvm::OpenMPIRBuilder *ompBuilder = moduleTranslation.getOpenMPBuilder();
@@ -3903,17 +4006,26 @@ convertHostOrTargetOperation(Operation *op, llvm::IRBuilderBase &builder,
   llvm::OpenMPIRBuilder *ompBuilder = moduleTranslation.getOpenMPBuilder();
 
   return llvm::TypeSwitch<Operation *, LogicalResult>(op)
-      .Case([&](omp::BarrierOp) -> LogicalResult {
+      .Case([&](omp::BarrierOp op) -> LogicalResult {
+        if (failed(checkImplementationStatus(op)))
+          return failure();
+
         llvm::OpenMPIRBuilder::InsertPointOrErrorTy afterIP =
             ompBuilder->createBarrier(builder.saveIP(),
                                       llvm::omp::OMPD_barrier);
         return handleError(afterIP, *op);
       })
-      .Case([&](omp::TaskyieldOp) {
+      .Case([&](omp::TaskyieldOp op) {
+        if (failed(checkImplementationStatus(op)))
+          return failure();
+
         ompBuilder->createTaskyield(builder.saveIP());
         return success();
       })
-      .Case([&](omp::FlushOp) {
+      .Case([&](omp::FlushOp op) {
+        if (failed(checkImplementationStatus(op)))
+          return failure();
+
         // No support in Openmp runtime function (__kmpc_flush) to accept
         // the argument list.
         // OpenMP standard states the following:
